@@ -1,8 +1,8 @@
-all: bank
+all: kucyki
 test: test1.c test1.h
 	mpicc test1.c -o test.out
-bank: main.o init.o
-	mpicc main.o init.o -o bank
+kucyki: kucyki.cpp kucyki.h
+	mpic++ kucyki.cpp -o kucyki -g
 
 init.o: init.c 
 	mpicc init.c -c -Wall
@@ -10,5 +10,9 @@ init.o: init.c
 main.o: main.c main.h
 	mpicc main.c -c -Wall
 
+run: kucyki
+	clear
+	mpirun -np 4 kucyki
+
 clear: 
-	rm *.o bank
+	rm *.o kucyki
