@@ -19,10 +19,14 @@
 #define MY_STATE_IS 4
 #define ACC 5
 
+#define PACKET_RESPONSE_T 1
+#define PACKET_SEND_T 2
 int rank, size;
 std::vector<int> processes_weights;
-MPI_Datatype mpi_send_type, mpi_response_type;
+MPI_Datatype MPI_SEND_TYPE, MPI_RESPONSE_TYPE;
 
+#define TAKE_ACTION 1
+#define GIVE_ACTION 2
 struct Ponny{
     int current;
     Ponny(int number){
@@ -57,10 +61,12 @@ struct Section{
     int id, time, active; //ID - unique number, time-lamport clocks time, -active
 };
 
-MutexVariable<void> mpi_mutex(void);
+
+MutexVariable<int> mpi_mutex(0); //With lamport time
 MutexVariable<Ponny*> ponny_mutex;
-MutexVariable<int> lamport_mutex(0);
 MutexVariable<Section*> current_section;
 
-MutexVariable<std::vector<int>> lamport_vector;
-std::vector<MutexVariable<Ship*>> shis_vector;
+MutexVariable<std::vector<int>> lamport_vector_section;
+MutexVariable<std::vector<int>> lamport_vector_global;
+
+std::vector<MutexVariable<Ship*>*> ships_vector;
