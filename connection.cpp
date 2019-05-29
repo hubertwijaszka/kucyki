@@ -3,6 +3,10 @@
 MPI_Datatype MPI_SEND_TYPE;//, MPI_RESPONSE_TYPE;
 MutexVariable<int> mpi_mutex(0);
 
+MutexVariable<int>* getMpiMutex(){
+    return &mpi_mutex;
+}
+
 void create_mpi_types(){
     int blocklengths_send[4] = {1,1, 1, 1};
     MPI_Datatype types_send[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT};
@@ -36,8 +40,8 @@ void sendMessage(packet_send_t message, int destination,int tag){
     time++;
 
     message.lamport_clock = time;
-    printf("%d %d %d %d \n", message.section, message.lamport_clock, message.value, message.action);
-    printf("%d %d\n", destination, tag);
+   // printf("%d %d %d %d \n", message.section, message.lamport_clock, message.value, message.action);
+  //  printf("%d %d\n", destination, tag);
     MPI_Send(&message, 1, MPI_SEND_TYPE, destination, tag, MPI_COMM_WORLD);
     mpi_mutex.setNonLock(time);
     mpi_mutex.unlock();

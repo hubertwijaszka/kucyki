@@ -1,14 +1,13 @@
-all: kucyki
-test: test1.c test1.h
-	mpicc test1.c -o test.out
-kucyki: kucyki.cpp kucyki.h
-	mpic++ kucyki.cpp -o kucyki -g
+all: main
 
-init.o: init.c 
-	mpicc init.c -c -Wall
+main: kucyki.o connection.o
+	mpic++ kucyki.o connection.o -o main
 
-main.o: main.c main.h
-	mpicc main.c -c -Wall
+kucyki.o: kucyki.cpp kucyki.h
+	mpic++ kucyki.cpp -c -Wall
+
+connection.o: connection.cpp connection.h
+	mpic++ connection.cpp -c -Wall
 
 run: kucyki
 	clear

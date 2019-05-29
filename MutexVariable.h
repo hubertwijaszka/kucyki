@@ -1,3 +1,6 @@
+#pragma once
+#ifndef MUTEXVARIABLE_H
+#define MUTEXVARIABLE_H
 #include <mutex>
 
 template<class T> 
@@ -21,13 +24,15 @@ public:
         mutex.lock();
     }
     void unlock(){
-        mutex.lock();
+        mutex.unlock();
     }
 
     T get(){
         return value;
     }
-
+    void setNonLock(T value){
+        this->value = value;
+    }
     void set(T value){
         lock();
         this->value = value;
@@ -35,3 +40,5 @@ public:
     }
 
 };
+
+#endif
