@@ -14,116 +14,50 @@
 
 pthread_t threadCom, threadM;
 
+std::vector<MutexVariable<Ship*>*> ships_vector;
+
+MutexVariable<Section*> current_section;
+
+MutexVariable<std::vector<int>> lamport_vector_section;
+MutexVariable<std::vector<int>> lamport_vector_global;
+int rank, size;
+std::vector<int> processes_weights; //TODO move to shipManager
+
+
 void check_thread_support(int provided);
 void initialize_processes_weights(int size);
-void inicjuj(int *argc, char ***argv);
+void inicjuj(int argc, char **argv);
 void mainLoop();
 int main(int argc, char **argv)
 {
+    
     /* Tworzenie wątków, inicjalizacja itp */
-    inicjuj(&argc,&argv);
+    inicjuj(argc,argv);
     mainLoop();
     MPI_Finalize();
-}
-bool canTakePonny(){
-    int count = 0;
-    lamport_vector_section.lock();
-    auto vec = lamport_vector_section.get();
-    auto lamp = vec[rank];
-    for(int i=0;i<vec.size();++i)
-        if(i!=rank)
-            if(vec[i]<lamp || (vec[i]==lamp && rank>i))
-                count++;
-    return count < ponny_mutex.get()->current;
     
 }
 
-MutexVariable<int> ponnyMutex(0);
-void handleUnlockPonny(){
-    current_section.lock();
-    if(current_section.get()->id == 0 && current_section.get()->active){
-        if(canTakePonny())
-            ponnyMutex.unlock();
-    }
-    current_section.unlock();
-}
-
-void takePonny(){
-    current_section.lock();
-    lamport_vector_section.set(lamport_vector_global.get());
-
-    auto sec = current_section.get();
-    sec->id = 0;
-    sec->time = lamport_vector_section.get()[rank];
-    sec->active = 1;
-    
-    current_section.unlock();
-    
-    if(canTakePonny()){
-        packet_send_t mess;
-        mess.section = 0;
-        mess.action = 0; //Take
-        mess.value = 1;
-        for(int i=0;i<size;++i){
-            if(i!=rank)
-                sendMessage(mess,i,GET_RESOURCE);
-        }
-    }else{
-        packet_send_t mess;
-        mess.section = 0;
-        mess.action = 3; //Ask
-        mess.value = 0;
-        for(int i=0;i<size;++i){
-            if(i!=rank)
-                sendMessage(mess,i,GET_TIME);
-        }
-        ponnyMutex.lock();
-        ponnyMutex.getLock();
-        mess.action = 0;
-        mess.value = 1;
-        for(int i=0;i<size;++i){
-            if(i!=rank)
-                sendMessage(mess,i,GET_RESOURCE);
-        }
-
-    }
-
-    current_section.lock();
-    sec = current_section.get();
-    sec->active = 0;
-    current_section.unlock();
-}
-void returnPonny(){
-    packet_send_t mess;
-    mess.section = 0;
-    mess.action = 2; //Return
-    mess.value = 1;
-    for(int i=0;i<size;++i){
-        if(i!=rank)
-            sendMessage(mess,i,GET_RESOURCE);
-    }
-}
 void mainLoop(){
-    // if(rank != 0){
-    //     sleep(5);
-    // }else{
-    //     sleep(1);
-    //     packet_send_t mess;
-        
-    //     for(int i=1;i<size;++i){
-    //         printf("%d %d %d\n",i, size, rank);
-    //         mess.section = i;
-    //         mess.action = i;
-    //         mess.value = i;
-    //         sendMessage(mess, i, i);
-    //     }
-    // }
+
     while(true){
+        printf("Rank %d New iteration\n", rank);
+        sleep(1);
         takePonny();
-        printf("%d ponny taken\n",rank);
-        sleep(2);
-        printf("%d return ponny\n", rank);
+        printf("Rank %d ponny taken\n",rank);
+        sleep(1);
+        
+        printf("Rank %d Taking ship\n", rank);
+        while(!takeRandomShip());
+        printf("Rank %d Ship taken %d\n",rank);
+        sleep(5);
+        printf("Rank %d Taking ship to home\n", rank);
+        takeBackShip();
+        printf("Rank %d Back\n",rank);
+        sleep(1);
         returnPonny();
+        printf("Rank %d return ponny\n", rank);
+        sleep(5);
     }
     //Take ponny
     //Take ship
@@ -131,32 +65,7 @@ void mainLoop(){
     //Do something
     //Come back
     //Give back ponny
-}
-void updateVector(MutexVariable<std::vector<int>> &vec, int position, int value, int mode){
-    vec.lock();
-    auto section_vec = vec.get();
-    if(mode == 0)
-        section_vec[position] = std::max(value,section_vec[position]);
-    else
-        section_vec[position] = value;
-    vec.set(section_vec);
-    vec.unlock();
-}
-void handleChangeState(packet_send_t msg, int source){
-    updateVector(lamport_vector_section, source, msg.lamport_clock, 0);
-    updateVector(lamport_vector_global, source, msg.lamport_clock, 0);
-   
-    if(msg.section == 0){
-        ponny_mutex.lock();
-        auto ponny = ponny_mutex.get();
-        ponny->current += msg.value;
-        ponny_mutex.unlock();
-    }    
-    else{
-    
-    }
-}
-    
+}  
 
 void*  comFunc(void *arg){
     while(1){
@@ -164,11 +73,16 @@ void*  comFunc(void *arg){
         
 
         auto mess = recv_message();
-        printf("Rank %d From %d\n", rank, mess.first.MPI_SOURCE);
+       // printf("Rank %d From %d TAG %d\n", rank, mess.first.MPI_SOURCE, mess.first.MPI_TAG);
         
         auto status = mess.first;
         auto mesg = mess.second;
-        lamport_vector_global.get()[rank] = lamport_vector_global.get()[rank];
+       // printf("New message, rank: %d, tag: %d, source: %d, section %d, action: %d, value: %d\n", rank, status.MPI_TAG, status.MPI_SOURCE, mesg.section, mesg.action, mesg.value);
+        lamport_vector_global.lock();
+        auto vec = lamport_vector_global.get();
+        vec[rank] = getMpiMutex()->get();
+        lamport_vector_global.setNonLock(vec);
+        lamport_vector_global.unlock();
 
         
          if(status.MPI_TAG == GET_TIME){
@@ -187,80 +101,83 @@ void*  comFunc(void *arg){
                 }
                 current_section.unlock();
          } else if(status.MPI_TAG == GET_RESOURCE){
-             continue;
+             
             lamport_vector_global.lock();
+            lamport_vector_section.lock();
             auto vec1 = lamport_vector_global.get();
             vec1[status.MPI_SOURCE] = mesg.lamport_clock;
             lamport_vector_global.setNonLock(vec1);
             lamport_vector_global.unlock();
 
-            lamport_vector_section.lock();
+
+            
             auto vec2 = lamport_vector_section.get();
             vec2[status.MPI_SOURCE] = mesg.lamport_clock;
             lamport_vector_section.setNonLock(vec2);
             lamport_vector_section.unlock();
-            
+
+           
             if(mesg.section == 0){ //Ponny
-                if(mesg.action == 0){
-                    ponny_mutex.lock();
-                    ponny_mutex.get()->current -= mesg.value;
-                    ponny_mutex.unlock();
-                }
-                if(mesg.action == 2){
-                    ponny_mutex.lock();
-                    ponny_mutex.get()->current += mesg.value;
-                    ponny_mutex.unlock();
-                }
-                handleUnlockPonny();
+                ponnyHandleMessage(mesg);
+            }else{
+                shipHandleMessage(mesg);
             }
+         }else if(status.MPI_TAG == RESPONSE_TIME){
+            auto current_section = getCurrentSection();
+            current_section->lock();
+            lamport_vector_section.lock();
+            if(current_section->get()->id == mesg.section && current_section->get()->active)
+            {
+            
+                auto tmp = lamport_vector_section.get();
+                tmp[status.MPI_SOURCE] = mesg.value;
+                lamport_vector_section.setNonLock(tmp);
+            }
+            current_section->unlock();
+            lamport_vector_section.unlock();
+            shipStateChange();
+            ponnyStateChange();
          }
-        // }
-    }
-    // std::cout << "NEW\n";
-    // Messeges buf;
-    // MPI_Status status;
-    // while(true){
-    //     MPI_Recv(&buf, 1,MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-    //     mpi_mutex.set(buf.send.lamport_clock+1); //TODO check 
         
-    //     if(status.MPI_TAG == GIVE_YOUR_STATE){
-    //        Messeges ms;
-    //        current_section.lock();
-    //        auto sec = current_section.get();
-    //        if(sec == nullptr || sec->active == false){
-    //            ms.response.section = -1;
-    //            ms.response.earliest = mpi_mutex.get();
-    //        }else
-    //        {
-    //            ms.response.section = sec->id;
-    //            ms.response.earliest = sec->time;
-    //        }
-    //        sendMessage(ms, PACKET_RESPONSE_T, status.MPI_SOURCE, STATE_RESPONSE);
-    //        current_section.unlock();
-    //     }
-    //     if(status.MPI_TAG == CHANGE_STATE){
-    //         handleChangeState(buf.send, status.MPI_SOURCE);
-    //     }
-    //     if(status.MPI_TAG == STATE_RESPONSE){
-    //         handleStateResponse(buf.response, status.MPI_SOURCE);
-    //     }
-    // }
+    }
+
 
 
 
 }
-void inicjuj(int *argc, char ***argv)
+void inicjuj(int argc, char **argv)
 {
     int provided;
-    //delayStack = g_queue_new();
+    /*
+        Argv:
+        n weights of processes n=MPI_SIZE
+        one number m. Number of ships
+        m numbers of capacity of ships;
+    */
+   
+   
+  
     
-    MPI_Init_thread(argc, argv,MPI_THREAD_MULTIPLE, &provided);
+    MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE, &provided);
     check_thread_support(provided);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     srand(rank);
-    initialize_processes_weights(size);
+
+     processes_weights = std::vector<int>(size);
+    int ponnies = atoi(argv[1]);
+    for(int i=0;i<size;++i)
+        processes_weights[i] = atoi(argv[i+2]);
+
+    int num_ships = atoi(argv[size+1]);
+    std::vector<int> cap(num_ships);
+    for(int i=0;i<num_ships;++i)
+        cap[i] = atoi(argv[i+size+2]);
+     shipInit(cap);
+
+    //delayStack = g_queue_new();
+    //initialize_processes_weights(size);
 
     create_mpi_types();
     
@@ -273,7 +190,7 @@ void inicjuj(int *argc, char ***argv)
     auto tmp2 = std::vector<int>(size);
     lamport_vector_global.set(tmp2);
 
-    ponny_mutex.set(new Ponny(1));
+    ponnyInit(rank, size, ponnies);
 
     auto sec = new Section();
     sec->active = 0;
@@ -313,3 +230,13 @@ void check_thread_support(int provided)
             break;
       }
 }
+
+MutexVariable<Section*>* getCurrentSection(){
+    return &current_section;
+}
+MutexVariable<std::vector<int>>* getLamportSection(){
+    return &lamport_vector_section;
+}
+MutexVariable<std::vector<int>>* getLamportGlobal(){
+    return &lamport_vector_global;
+} 

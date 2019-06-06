@@ -7,6 +7,7 @@ MutexVariable<int>* getMpiMutex(){
     return &mpi_mutex;
 }
 
+
 void create_mpi_types(){
     int blocklengths_send[4] = {1,1, 1, 1};
     MPI_Datatype types_send[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT};

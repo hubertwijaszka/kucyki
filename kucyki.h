@@ -1,3 +1,6 @@
+#ifndef __KUCYKI__
+#define __KUCYKI__
+
 #include "MutexVariable.h"
 #include "connection.h"
 #include <stdlib.h>
@@ -8,6 +11,8 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
+#include "ponnyManager.h"
+#include "shipManager.h"
 
 #define MAX_WEIGHT 10
 #define ROOT 0
@@ -20,8 +25,7 @@
 #define ACC 5
 
 
-int rank, size;
-std::vector<int> processes_weights;
+
 
 
 #define TAKE_ACTION 1
@@ -44,13 +48,13 @@ struct Section{
     int id, time, active; //ID - unique number, time-lamport clocks time, -active
 };
 
+MutexVariable<Section*>* getCurrentSection();
+MutexVariable<std::vector<int>>* getLamportSection();
+MutexVariable<std::vector<int>>* getLamportGlobal();
 
  //With lamport time
-MutexVariable<Ponny*> ponny_mutex;
-MutexVariable<Section*> current_section;
 
-MutexVariable<std::vector<int>> lamport_vector_section;
-MutexVariable<std::vector<int>> lamport_vector_global;
 
 //export MutexVariable<int> mpi_mutex;
-std::vector<MutexVariable<Ship*>*> ships_vector;
+
+#endif
