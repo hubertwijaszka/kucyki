@@ -49,7 +49,7 @@ void mainLoop(){
         
         printf("Rank %d Taking ship\n", rank);
         while(!takeRandomShip());
-        printf("Rank %d Ship taken %d\n",rank);
+        printf("Rank %d Ship taken\n",rank);
         sleep(5);
         printf("Rank %d Taking ship to home\n", rank);
         takeBackShip();
@@ -169,11 +169,13 @@ void inicjuj(int argc, char **argv)
     int ponnies = atoi(argv[1]);
     for(int i=0;i<size;++i)
         processes_weights[i] = atoi(argv[i+2]);
+ 
+    int num_ships = atoi(argv[size+2]);
 
-    int num_ships = atoi(argv[size+1]);
     std::vector<int> cap(num_ships);
     for(int i=0;i<num_ships;++i)
-        cap[i] = atoi(argv[i+size+2]);
+        cap[i] = atoi(argv[i+size+3]);
+
      shipInit(cap);
 
     //delayStack = g_queue_new();

@@ -39,8 +39,11 @@ bool shipAvailable(){
     for(auto it : shipValue)
         it->lock();
     bool res = false;
-    for(auto it : shipValue)
-        res |= (it->get()>0 && cap[rank]>= processes_weights[rank]);
+    int i = 0;
+    for(auto it : shipValue){
+        res |= (it->get()>0 && cap[i]>= processes_weights[rank]);
+        i += 1;
+    }
     for(auto it : shipValue)
         it->unlock();
     return res;
@@ -83,18 +86,20 @@ bool takeRandomShip(){
     sec->active = 1;
     selectedSection = section;
     current_section->unlock();
-
+    
+  
     if(!shipAvailable())
     {
         anyShipMutex.lock();
         anyShipMutex.getLock();
     }
-    if(cap[section]< processes_weights[rank])
+    
+    if(cap[section-1]< processes_weights[rank])
         return false;
     packet_send_t mess;
 
     int canTake = canTakeShip(section-1);
-
+    
     if(canTake == 0){
         
         mess.section = section;
@@ -157,7 +162,7 @@ bool takeRandomShip(){
                 sendMessage(mess,i,GET_RESOURCE);
         }  
     }
-    printf("Rank %d id of ship %d\n",rank, selectedSection-1);
+    printf("Rank %d Id of taken ship %d\n",rank, selectedSection-1);
 
     return true;
 }
